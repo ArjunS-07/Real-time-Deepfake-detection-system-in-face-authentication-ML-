@@ -1,0 +1,46 @@
+# ==============================================================================
+# Root .gitignore - Keep only face-auth-project tracked
+# ==============================================================================
+
+# 1. Ignore all files and folders at the root level by default
+/*
+
+# 2. Allow this root .gitignore file
+!.gitignore
+
+# 3. Only whitelist and track the face-auth-project folder
+!/face-auth-project/
+
+# ==============================================================================
+# Explicit safety exclusions for root data, training codes, models, and environments
+# ==============================================================================
+# Training & data preparation scripts
+/01_clean_and_organize.py
+/02_split_manifest.py
+/03_train_texture_engine.py
+/04_train_landmark_engine.py
+/05_train_biological_engine.py
+/06_train_fusion.py
+/0*.py
+/*train*.py
+
+# Root datasets
+/processed/
+/processed_test/
+/processed_test2/
+
+# Root models & environments
+/models/
+/mpenv/
+/venv/
+/.venv/
+
+# Root documentation & setup files outside face-auth-project
+/README.md
+/requirements.txt
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

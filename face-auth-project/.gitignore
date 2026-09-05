@@ -1,0 +1,88 @@
+# ==============================================================================
+# face-auth-project .gitignore
+# ==============================================================================
+
+# --- Python & Virtual Environments ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+env/
+ENV/
+mpenv/
+
+# --- Training Codes & Notebooks ---
+training/
+*.ipynb
+.ipynb_checkpoints/
+
+# --- Datasets, Large Archives & Raw Data ---
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+archive*.zip
+archive/
+datasets/
+raw_data/
+*.csv
+*.tsv
+*.parquet
+*.h5
+*.npy
+*.npz
+
+# --- Biometric Captured Data & Sensitive Face Frames ---
+backend/data/
+backend/data/captured_frames/
+
+# --- Databases & Logs ---
+*.db
+*.sqlite
+*.sqlite3
+backend/logs.db
+*.log
+
+# --- Trained Model Weights & Artifacts ---
+backend/models/*.onnx
+backend/models/*.pkl
+backend/models/*.pt
+backend/models/*.joblib
+backend/models/*.h5
+backend/models/*.bin
+!backend/models/README.md
+
+# --- Environment Files & Secrets ---
+.env
+*.env
+!.env.example
+.streamlit/secrets.toml
+
+# --- Operating System & Editor Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/models:/app/models
+    environment:
+      - FLASK_ENV=development
+
+  frontend:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: >
+      sh -c "pip install -r requirements.txt &&
+             streamlit run app.py --server.port 8501 --server.address 0.0.0.0"
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:5000
+    depends_on:
+      - backend
