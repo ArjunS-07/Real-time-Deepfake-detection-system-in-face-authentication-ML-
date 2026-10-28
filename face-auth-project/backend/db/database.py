@@ -58,7 +58,7 @@ def log_final_prediction(session_id: str, frame_count: int, result: dict):
         """,
         (
             session_id,
-            datetime.utcnow().isoformat(),
+            datetime.now().astimezone().isoformat(),
             frame_count,
             result["engines"]["texture_score"],
             result["engines"]["landmark_confidence"],

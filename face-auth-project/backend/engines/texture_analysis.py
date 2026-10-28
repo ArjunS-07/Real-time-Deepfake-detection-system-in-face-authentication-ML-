@@ -60,5 +60,6 @@ def analyze_texture(face_image) -> float:
             pass
 
     # Mock fallback
-    return round(random.uniform(0.55, 0.98), 4)
+    return round(random.uniform(0.70, 0.95), 4)
+
 

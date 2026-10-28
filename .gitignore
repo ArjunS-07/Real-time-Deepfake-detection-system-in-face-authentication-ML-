@@ -44,3 +44,15 @@
 Thumbs.db
 .vscode/
 .idea/
+
+# Backups, temporary files, scratch & agent artifacts
+*backup*/
+*.bak
+*.tmp
+*.temp
+/generated_graphs/
+/scratch/
+/*.pdf
+/.gemini/
+/.antigravity/
+

@@ -60,8 +60,24 @@ backend/data/captured_frames/
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 backend/logs.db
 *.log
+
+# --- Backups & Temporary Files ---
+*backup*/
+*.bak
+*.tmp
+*.temp
+
+# --- Testing & Code Quality ---
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # --- Trained Model Weights & Artifacts ---
 backend/models/*.onnx
@@ -77,6 +93,10 @@ backend/models/*.bin
 *.env
 !.env.example
 .streamlit/secrets.toml
+*.pem
+*.key
+*.cert
+*.crt
 
 # --- Operating System & Editor Files ---
 .DS_Store
@@ -86,3 +106,4 @@ desktop.ini
 .vscode/
 *.swp
 *.swo
+*~

@@ -28,6 +28,7 @@ def create_session() -> str:
             "last_seen": time.time(),
             "frames": [],  # list of {texture_score, landmark_confidence, blink_score}
             "landmarks": [],  # list of per-frame landmark sets (for coherence/blink engines)
+            "greens": [],  # list of per-frame mean green channel values
             "last_raw_frame": None,
         }
     return session_id
@@ -43,7 +44,7 @@ def _purge_expired():
         del _sessions[sid]
 
 
-def add_frame(session_id: str, scores: dict, landmarks=None):
+def add_frame(session_id: str, scores: dict, landmarks=None, green_val=None):
     with _lock:
         _purge_expired()
         if session_id not in _sessions:
@@ -52,10 +53,13 @@ def add_frame(session_id: str, scores: dict, landmarks=None):
                 "last_seen": time.time(),
                 "frames": [],
                 "landmarks": [],
+                "greens": [],
                 "last_raw_frame": None,
             }
         _sessions[session_id]["frames"].append(scores)
-        _sessions[session_id]["landmarks"].append(landmarks)
+        _sessions[session_id].setdefault("landmarks", []).append(landmarks)
+        if green_val is not None:
+            _sessions[session_id].setdefault("greens", []).append(green_val)
         _sessions[session_id]["last_seen"] = time.time()
         return len(_sessions[session_id]["frames"])
 
@@ -82,9 +86,9 @@ def get_session(session_id: str):
 
 def finalize_session(session_id: str):
     """
-    Aggregates per-frame scores (simple mean here) into final engine scores
-    ready for the fusion engine. Returns None if session doesn't exist or
-    has too few frames.
+    Aggregates per-frame scores and evaluates multi-frame biological and
+    landmark coherence on the collected sequence for the fusion engine.
+    Returns None if session doesn't exist or has too few frames.
     """
     with _lock:
         session = _sessions.get(session_id)
@@ -93,10 +97,21 @@ def finalize_session(session_id: str):
 
         frames = session["frames"]
         n = len(frames)
+        landmarks_seq = session.get("landmarks", [])
+        greens_seq = session.get("greens", [])
+
+        # Import sequence engines
+        from engines.landmark_coherence import analyze_landmark_coherence
+        from engines.biological_cues import analyze_blink_sequence
+
+        texture_score = round(sum(f["texture_score"] for f in frames) / n, 4)
+        landmark_confidence = analyze_landmark_coherence(landmarks_seq)
+        blink_score = analyze_blink_sequence(landmarks_seq, greens_seq)
+
         aggregated = {
-            "texture_score": round(sum(f["texture_score"] for f in frames) / n, 4),
-            "landmark_confidence": round(sum(f["landmark_confidence"] for f in frames) / n, 4),
-            "blink_score": round(sum(f["blink_score"] for f in frames) / n, 4),
+            "texture_score": texture_score,
+            "landmark_confidence": landmark_confidence,
+            "blink_score": blink_score,
         }
         frame_count = n
         last_raw_frame = session.get("last_raw_frame")

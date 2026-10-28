@@ -44,12 +44,12 @@ def detect_and_align(image: "PIL.Image.Image"):
     rgb = np.array(image)
     h, w, _ = rgb.shape
 
-    # 1. 3D Facial Landmarks via FaceMesh (for landmark coherence and biological cues)
+    # 1. 3D Facial Landmarks via FaceMesh (normalized [0, 1] for landmark coherence and biological cues)
     landmarks = None
     mesh_results = _mp_face_mesh.process(rgb)
     if mesh_results.multi_face_landmarks:
         landmarks = [
-            (lm.x * w, lm.y * h, lm.z * w) for lm in mesh_results.multi_face_landmarks[0].landmark
+            (lm.x, lm.y, lm.z) for lm in mesh_results.multi_face_landmarks[0].landmark
         ]
 
     # 2. Face crop via FaceDetection with 0.35 margin (exact same crop as training pipeline)
@@ -75,8 +75,8 @@ def detect_and_align(image: "PIL.Image.Image"):
         y_max = min(h, int(y1 + bh + 2 * my))
     elif landmarks:
         # Fallback to FaceMesh landmarks bounding box with 0.35 margin
-        xs = [p[0] for p in landmarks]
-        ys = [p[1] for p in landmarks]
+        xs = [p[0] * w for p in landmarks]
+        ys = [p[1] * h for p in landmarks]
         bw = max(xs) - min(xs)
         bh = max(ys) - min(ys)
         mx = bw * FACE_MARGIN

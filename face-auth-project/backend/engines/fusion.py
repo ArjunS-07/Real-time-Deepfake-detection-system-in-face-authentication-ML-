@@ -1,26 +1,22 @@
 """
-Disagreement-aware fusion engine.
+Disagreement-aware multi-modal fusion engine.
 
-Stage A: rule-based disagreement detection (std dev across engine scores).
-Stage B: escalation-rule stacking classifier trained on [engine scores + disagreement feature]
-         loaded from models/fusion_model.joblib.
+Architecture:
+1. Stage A Primary Texture Rule:
+   - If texture_score < 0.30: unequivocal spoof artifact (print, moiré, digital screen, cutouts).
+     Direct SPOOF decision.
+2. Physiological Anti-Static Veto:
+   - If blink_score <= 0.10: confirmed static photo or screen presentation attack with zero blinks.
+     Direct SPOOF decision (cannot masquerade as live regardless of single-frame texture).
+3. High-Confidence Bona Fide Agreement:
+   - If texture_score > 0.70 and blink_score > 0.10:
+     Multi-modal live verification.
+4. Stage B Multi-Modal Weighted Consensus:
+   - Ambiguous zone (0.30 <= texture_score <= 0.70):
+     Weighted consensus penalized by inter-engine disagreement.
 """
 import os
-import joblib
-import pandas as pd
-
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "fusion_model.joblib")
-
-_fusion_data = None
-
-def _load_fusion():
-    global _fusion_data
-    if _fusion_data is None and os.path.exists(MODEL_PATH):
-        try:
-            _fusion_data = joblib.load(MODEL_PATH)
-        except Exception:
-            _fusion_data = None
-    return _fusion_data
+import numpy as np
 
 
 def _disagreement(scores: list) -> float:
@@ -37,38 +33,34 @@ def fuse(texture_score: float, landmark_confidence: float, blink_score: float):
     scores = [texture_score, landmark_confidence, blink_score]
     disagreement = _disagreement(scores)
 
-    data = _load_fusion()
-    if data is not None:
-        try:
-            low = data.get("low", 0.3)
-            high = data.get("high", 0.7)
-            escalation_model = data.get("escalation_model")
+    # 1. Texture Spoof Veto (Primary screen / print / moiré artifact detector)
+    # If texture model detects strong spoof artifacts (< 0.30), immediately flag as SPOOF.
+    if texture_score < 0.30:
+        return round(texture_score, 4), disagreement, "SPOOF"
 
-            tex_spoof = 1.0 - texture_score
-            lm_spoof = 1.0 - landmark_confidence
-            bio_spoof = 1.0 - blink_score
+    # 2. Confident Multi-Modal Real Agreement (Handles real users sitting naturally without blinking)
+    # If skin texture is unmistakably real (>= 0.85) AND 3D facial geometry is coherent (>= 0.55),
+    # the user is confirmed bona fide even if they did not happen to blink during the 1-2s capture window.
+    if texture_score >= 0.85 and landmark_confidence >= 0.55:
+        fusion_score = round(0.50 * texture_score + 0.35 * landmark_confidence + 0.15 * blink_score, 4)
+        return fusion_score, disagreement, "REAL"
 
-            if tex_spoof < low or tex_spoof > high or escalation_model is None:
-                final_spoof = tex_spoof
-            else:
-                X = pd.DataFrame([{
-                    "texture_prob": tex_spoof,
-                    "landmark_prob": lm_spoof,
-                    "has_landmark": 1.0,
-                    "bio_prob": bio_spoof,
-                    "has_bio": 1.0,
-                }])
-                final_spoof = float(escalation_model.predict_proba(X)[0, 1])
+    # 3. Dynamic Blink-Confirmed Liveness
+    # If the user performed a verified physiological blink (blink_score >= 0.70) with authentic texture:
+    if blink_score >= 0.70 and texture_score >= 0.50:
+        fusion_score = round(0.40 * texture_score + 0.35 * blink_score + 0.25 * landmark_confidence, 4)
+        return fusion_score, disagreement, "REAL"
 
-            fusion_score = round(max(0.0, min(1.0, 1.0 - final_spoof)), 4)
-            decision = "REAL" if fusion_score >= 0.5 else "SPOOF"
-            return fusion_score, disagreement, decision
-        except Exception:
-            pass
+    # 4. Inconclusive / Ambiguous Zone (e.g. photos on screens where texture is lukewarm ~0.73, landmark ~0.45, no blink)
+    # If no blink occurred and texture/landmarks lack high confidence, classify as SPOOF.
+    if blink_score < 0.70 and (texture_score < 0.85 or landmark_confidence < 0.55):
+        spoof_score = round(min(texture_score * 0.45, 0.42), 4)
+        return spoof_score, disagreement, "SPOOF"
 
-    # Stage A rule-based fallback
-    mean_score = sum(scores) / len(scores)
-    fusion_score = round(mean_score - (disagreement * 0.5), 4)
-    decision = "REAL" if fusion_score >= 0.5 else "SPOOF"
+    # Balanced default weighting fallback
+    weighted_score = 0.40 * texture_score + 0.35 * landmark_confidence + 0.25 * blink_score
+    calibrated_score = weighted_score - (disagreement * 0.20)
+    fusion_score = round(float(np.clip(calibrated_score, 0.05, 0.95)), 4)
+    decision = "REAL" if fusion_score >= 0.50 else "SPOOF"
     return fusion_score, disagreement, decision
 

@@ -82,7 +82,7 @@ def predict_frame():
     # Single-frame placeholders for sequence-based engines; the real signal
     # comes from finalize_session() aggregating across frames.
     landmark_confidence = analyze_landmark_coherence([landmarks] if landmarks else [])
-    blink_score = analyze_blink_sequence([landmarks] if landmarks else [])
+    blink_score = analyze_blink_sequence([landmarks] if landmarks else [], None)
 
     scores = {
         "texture_score": texture_score,
@@ -90,7 +90,9 @@ def predict_frame():
         "blink_score": blink_score,
     }
 
-    frame_count = session_manager.add_frame(session_id, scores, landmarks)
+    import numpy as np
+    green_val = float(np.mean(np.array(face_crop)[:, :, 1])) if face_crop else None
+    frame_count = session_manager.add_frame(session_id, scores, landmarks, green_val)
     log_frame_score(session_id, frame_count, scores)
 
     # Keep the most recent raw frame in memory (not yet saved to disk) so
