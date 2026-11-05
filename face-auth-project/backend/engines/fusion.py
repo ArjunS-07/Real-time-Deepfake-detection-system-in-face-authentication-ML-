@@ -39,9 +39,9 @@ def fuse(texture_score: float, landmark_confidence: float, blink_score: float):
         return round(texture_score, 4), disagreement, "SPOOF"
 
     # 2. Confident Multi-Modal Real Agreement (Handles real users sitting naturally without blinking)
-    # If skin texture is unmistakably real (>= 0.85) AND 3D facial geometry is coherent (>= 0.55),
-    # the user is confirmed bona fide even if they did not happen to blink during the 1-2s capture window.
-    if texture_score >= 0.85 and landmark_confidence >= 0.55:
+    # If skin texture is unmistakably real (>= 0.85) AND 3D facial geometry is coherent (>= 0.45),
+    # the user is confirmed bona fide even if they did not happen to blink during the short capture window.
+    if texture_score >= 0.85 and landmark_confidence >= 0.45:
         fusion_score = round(0.50 * texture_score + 0.35 * landmark_confidence + 0.15 * blink_score, 4)
         return fusion_score, disagreement, "REAL"
 
@@ -51,9 +51,9 @@ def fuse(texture_score: float, landmark_confidence: float, blink_score: float):
         fusion_score = round(0.40 * texture_score + 0.35 * blink_score + 0.25 * landmark_confidence, 4)
         return fusion_score, disagreement, "REAL"
 
-    # 4. Inconclusive / Ambiguous Zone (e.g. photos on screens where texture is lukewarm ~0.73, landmark ~0.45, no blink)
+    # 4. Inconclusive / Ambiguous Zone (e.g. photos on screens where texture is lukewarm < 0.80, or landmarks flat < 0.45, with no blink)
     # If no blink occurred and texture/landmarks lack high confidence, classify as SPOOF.
-    if blink_score < 0.70 and (texture_score < 0.85 or landmark_confidence < 0.55):
+    if blink_score < 0.70 and (texture_score < 0.80 or landmark_confidence < 0.45):
         spoof_score = round(min(texture_score * 0.45, 0.42), 4)
         return spoof_score, disagreement, "SPOOF"
 

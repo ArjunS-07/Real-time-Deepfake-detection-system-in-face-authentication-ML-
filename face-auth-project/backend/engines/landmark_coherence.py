@@ -171,7 +171,9 @@ def _calibrate_landmark_score(raw_prob: float, feats: dict = None) -> float:
         c_sym = float(feats.get("cheek_symmetry", 0.5))
         m_sym = float(feats.get("mouth_symmetry", 0.5))
         geom_sym = 0.5 * c_sym + 0.5 * m_sym
-        hybrid = 0.60 * raw_prob + 0.40 * geom_sym
+        # Re-weighted: Give authentic geometric symmetry dominant influence (65%)
+        # over the domain-shifted dataset model raw probability (35%)
+        hybrid = 0.35 * raw_prob + 0.65 * geom_sym
         return round(float(np.clip(hybrid, 0.10, 0.95)), 4)
 
     # Fallback to smooth probability mapping
