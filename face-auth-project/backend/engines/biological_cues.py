@@ -191,11 +191,16 @@ def analyze_blink_sequence(landmark_sequence: list, green_sequence: list = None,
             # 1. Verified physiological eye blink: eyelid closed (ear_min < 0.21) with rapid recovery
             if blinks >= 1 and ear_min < 0.21:
                 bio_score = max(raw_live, 0.85)
-            # 2. Zero blinks in the short capture window:
-            # A real user sitting naturally often does not blink within 1-2 seconds.
-            # Treat as unconfirmed neutral baseline (0.40) rather than an artificial spoof penalty.
+            # 2. Zero blinks in the capture window:
+            # Differentiate between a completely frozen/rigid presentation attack (static photo/screen)
+            # vs a genuine living human sitting naturally without blinking.
             elif blinks == 0:
-                bio_score = 0.40
+                # Completely frozen static photo: virtually zero internal deformation and zero eyelid range
+                if internal_dist_std < 0.0010 and ear_range < 0.012:
+                    bio_score = max(raw_live, 0.10)
+                else:
+                    # Living human with subtle involuntary micro-tremors, breathing, and eye micro-flutter
+                    bio_score = 0.45
             else:
                 bio_score = raw_live
 
@@ -206,8 +211,10 @@ def analyze_blink_sequence(landmark_sequence: list, green_sequence: list = None,
     # Analytical heuristic fallback only if model weights file is missing
     if blinks >= 1 and ear_min < 0.21:
         liveness_score = 0.85
+    elif internal_dist_std < 0.0010 and ear_range < 0.012:
+        liveness_score = 0.10
     else:
-        liveness_score = 0.40
+        liveness_score = 0.45
 
     return round(float(np.clip(liveness_score, 0.05, 0.95)), 4)
 

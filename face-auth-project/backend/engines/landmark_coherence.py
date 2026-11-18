@@ -171,9 +171,13 @@ def _calibrate_landmark_score(raw_prob: float, feats: dict = None) -> float:
         c_sym = float(feats.get("cheek_symmetry", 0.5))
         m_sym = float(feats.get("mouth_symmetry", 0.5))
         geom_sym = 0.5 * c_sym + 0.5 * m_sym
-        # Re-weighted: Give authentic geometric symmetry dominant influence (65%)
-        # over the domain-shifted dataset model raw probability (35%)
-        hybrid = 0.35 * raw_prob + 0.65 * geom_sym
+        
+        # When model indicates high spoof probability (raw_prob < 0.30),
+        # prevent 2D frontal symmetry alone from inflating the score
+        if raw_prob < 0.30:
+            hybrid = 0.55 * raw_prob + 0.45 * geom_sym
+        else:
+            hybrid = 0.38 * raw_prob + 0.62 * geom_sym
         return round(float(np.clip(hybrid, 0.10, 0.95)), 4)
 
     # Fallback to smooth probability mapping
@@ -193,7 +197,7 @@ def analyze_landmark_coherence(landmark_sequence: list, *args, **kwargs) -> floa
     if not landmark_sequence:
         return 0.10
 
-    valid_frames = [lm for lm in landmark_sequence if lm and len(lm) >= 468]
+    valid_frames = [lm for lm in landmark_sequence if lm is not None and len(lm) >= 468]
     if not valid_frames:
         return 0.10
 
@@ -210,7 +214,28 @@ def analyze_landmark_coherence(landmark_sequence: list, *args, **kwargs) -> floa
                 raw_live = 1.0 - p_spoof
                 scores.append(_calibrate_landmark_score(raw_live, feats))
 
-            return round(float(np.mean(scores)), 4)
+            base_score = float(np.mean(scores))
+
+            # Temporal geometric rigidity check across frames:
+            # In a live human, internal facial landmarks (nose-to-mouth, eye-to-chin) micro-vary
+            # due to natural facial micro-expressions. In a static paper or screen presentation,
+            # internal distances are completely rigid.
+            if len(valid_frames) >= 3:
+                dists = []
+                for f_pts in valid_frames:
+                    pts = np.asarray(f_pts, dtype=np.float64)
+                    iod = np.linalg.norm(pts[33, :2] - pts[263, :2]) + 1e-6
+                    d_nm = np.linalg.norm(pts[1, :2] - pts[61, :2]) / iod
+                    d_ne = np.linalg.norm(pts[1, :2] - pts[33, :2]) / iod
+                    dists.append([d_nm, d_ne])
+
+                internal_std = float(np.mean(np.std(dists, axis=0)))
+                # If presentation is completely rigid (internal landmark distance variance < 0.0008),
+                # penalize the static presentation so it does not masquerade as a dynamic 3D face.
+                if internal_std < 0.0008:
+                    base_score = base_score * 0.62
+
+            return round(float(np.clip(base_score, 0.10, 0.95)), 4)
         except Exception:
             pass
 
